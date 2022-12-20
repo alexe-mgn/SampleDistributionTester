@@ -1,3 +1,4 @@
+from typing import Iterable
 import numpy as np
 
 from PySide6.QtCore import Qt, \
@@ -6,11 +7,13 @@ from PySide6.QtCore import Qt, \
 from PySide6.QtWidgets import \
     QWidget, \
     QTableWidgetItem, \
-    QHeaderView
+    QHeaderView, \
+    QDialog, QFileDialog, QMessageBox
+
+from src.app.utils import PATH
+from src.app.stat_math.distributions import parse_distribution, ParserError
 
 from .UI.ControlWidget import Ui_ControlWidget
-
-from src.app.stat_math.distributions import parse_distribution
 
 
 class ControlWidget(QWidget, Ui_ControlWidget):
@@ -24,7 +27,7 @@ class ControlWidget(QWidget, Ui_ControlWidget):
 
     @size.setter
     def size(self, size):
-        if size < 1:
+        if size < 2:
             raise ValueError(f'Invalid samples size: {size}')
 
         if size != self.size:
@@ -36,10 +39,21 @@ class ControlWidget(QWidget, Ui_ControlWidget):
     def samples(self):
         return np.copy(self._samples)
 
+    @samples.setter
+    def samples(self, samples: Iterable[float]):
+        self._samples = np.array(samples)
+        self.update_table()
+        self.samples_changed.emit()
+
+    @property
+    def pdf(self):
+        return self._pdf
+
     def __init__(self):
         super().__init__()
         self.setupUi()
 
+        self._last_path = PATH.CWD
         self._samples = np.array([])
         table_widget = self.tableWidget
         samples = []
@@ -71,7 +85,12 @@ class ControlWidget(QWidget, Ui_ControlWidget):
         self.inputDistribution.currentIndexChanged.connect(self._update_distribution_choice)
         self.inputCustomDistribution.textChanged.connect(self._update_distribution)
 
-        self.tableWidget.itemChanged.connect(self._table_item_changed)
+        self.tableWidget.itemChanged.connect(self._table_item_change)
+
+        self.buttonImport.clicked.connect(self._ui_import_samples)
+        self.buttonExport.hide()
+
+        self.samples_changed.connect(self._update_stats)
 
     def _init_table(self):
         table_widget = self.tableWidget
@@ -87,7 +106,7 @@ class ControlWidget(QWidget, Ui_ControlWidget):
     @Slot()
     def update_table(self):
         samples = self._samples
-        dist = self._dist_f(samples)
+        dist = self._pdf(samples)
         table_widget = self.tableWidget
         sb = QSignalBlocker(table_widget)
 
@@ -110,7 +129,8 @@ class ControlWidget(QWidget, Ui_ControlWidget):
             dist_str = self._NORMAL_DIST
 
         try:
-            self._dist_f = parse_distribution(dist_str)
+            parsed = parse_distribution(dist_str)
+            self._pdf = lambda x, mean=0, std=1: parsed(x)
         except Exception as exception:
             self.valueError.show()
             self.valueError.setText(str(exception))
@@ -118,9 +138,15 @@ class ControlWidget(QWidget, Ui_ControlWidget):
             self.valueError.hide()
             self.valueError.setText(self.tr('No errors'))
             self.update_table()
+            self.samples_changed.emit()
+
+    @Slot()
+    def _update_stats(self):
+        self.valueMean.setText(str(np.mean(self._samples)))
+        self.valueStd.setText(str(np.std(self._samples)))
 
     @Slot(QTableWidgetItem)
-    def _table_item_changed(self, item: QTableWidgetItem):
+    def _table_item_change(self, item: QTableWidgetItem):
         table_widget = self.tableWidget
         sb = QSignalBlocker(table_widget)
 
@@ -133,5 +159,35 @@ class ControlWidget(QWidget, Ui_ControlWidget):
         else:
             samples[row] = value
             item.setText(str(value))
-            table_widget.item(row, 1).setText(str(self._dist_f(value)))
+            table_widget.item(row, 1).setText(str(self._pdf(value)))
             self.samples_changed.emit()
+
+    def _parse_data(self, text: str) -> list[float]:
+        lines = text.strip().split('\n')
+        data = [0] * len(lines)
+        n = 0
+        try:
+            for n, i in enumerate(lines):
+                data[n] = float(i)
+        except Exception as exception:
+            raise ParserError(f'Error on line {n}: {str(exception)}')
+        return data
+
+    def _ui_import_samples(self):
+        dialog = QFileDialog(self, self.tr('Choose file'))
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptOpen)
+
+        dialog.setNameFilters(['CSV (*.csv)', 'Text files (*.txt)', 'Any files (*)'])
+
+        dialog.setDirectory(self._last_path)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._last_path = dialog.directory()
+            try:
+                with open(dialog.selectedFiles()[0], mode='r', encoding='utf8') as f:
+                    data = self._parse_data(f.read())
+            except Exception as exception:
+                QMessageBox.critical(self, 'Error', str(exception))
+            else:
+                self.samples = data
