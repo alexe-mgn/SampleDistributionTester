@@ -8,7 +8,9 @@ from sympy.parsing.sympy_parser import parse_expr, \
 
 __all__ = ['parse_distribution', 'ParserError']
 
-PARSE_TRANSFORMATIONS = (*standard_transformations, implicit_multiplication_application, convert_xor)
+PARSE_TRANSFORMATIONS = (*standard_transformations,
+                         # implicit_multiplication_application,
+                         convert_xor)
 
 
 class ParserError(Exception):
@@ -23,7 +25,7 @@ def parse_distribution(dist_str):
     if illegal_symbols := dist_expr.free_symbols - {x, mean, std}:
         raise ParserError(f"Illegal symbols: {illegal_symbols}, only {x, mean, std} allowed.")
     cdf_expr = syp.integrate(dist_expr, (x, -syp.oo, x))
-    cdf_f = syp.lambdify([x], cdf_expr, modules=['numpy', 'scipy'])
+    cdf_f = syp.lambdify([x, mean, std], cdf_expr, modules=['numpy', 'scipy'])
     return cdf_f
 
 

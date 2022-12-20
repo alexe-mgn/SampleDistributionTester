@@ -42,10 +42,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def set_samples(self, samples: np.ndarray):
         pdf = self.controlWidget.pdf
-        self._statistic = distributions.cramervonmises(samples, pdf)
-        scipy_results = cramervonmises(samples, pdf)
+        mean, std = np.mean(samples), np.std(samples)
+        pdf_arg = lambda x, mean=mean, std=std, pdf=pdf: pdf(x, mean, std)
+        self._statistic = distributions.cramervonmises(samples, pdf_arg)
+        scipy_results = cramervonmises(samples, pdf_arg)
         self._p_value = scipy_results.pvalue
-        self._update_results()
 
         self._update_results()
         self._update_plot()
@@ -65,4 +66,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     @Slot()
     def _update_plot(self):
-        self.plotWidget.plot(self.controlWidget.samples, self.controlWidget.pdf)
+        samples = self.controlWidget.samples
+        pdf = self.controlWidget.pdf
+        mean, std = np.mean(samples), np.std(samples)
+        pdf_arg = lambda x, mean=mean, std=std, pdf=pdf: pdf(x, mean, std)
+        self.plotWidget.plot(samples, pdf_arg)

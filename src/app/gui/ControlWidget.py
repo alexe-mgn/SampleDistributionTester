@@ -83,7 +83,7 @@ class ControlWidget(QWidget, Ui_ControlWidget):
         self.inputN.valueChanged.connect(lambda e, self=self: self.__class__.size.__set__(self, e))
 
         self.inputDistribution.currentIndexChanged.connect(self._update_distribution_choice)
-        self.inputCustomDistribution.textChanged.connect(self._update_distribution)
+        self.inputCustomDistribution.editingFinished.connect(self._update_distribution)
 
         self.tableWidget.itemChanged.connect(self._table_item_change)
 
@@ -106,10 +106,13 @@ class ControlWidget(QWidget, Ui_ControlWidget):
     @Slot()
     def update_table(self):
         samples = self._samples
-        dist = self._pdf(samples)
+        dist = self._pdf(samples, np.mean(self._samples), np.std(self._samples))
         table_widget = self.tableWidget
         sb = QSignalBlocker(table_widget)
+        input_n = self.inputN
+        sb_input = QSignalBlocker(input_n)
 
+        input_n.setValue(self.size)
         table_widget.setRowCount(self.size)
         for i in range(table_widget.rowCount()):
             table_widget.setItem(i, 0, item := QTableWidgetItem(str(samples[i])))
@@ -126,11 +129,11 @@ class ControlWidget(QWidget, Ui_ControlWidget):
     @Slot(str)
     def _update_distribution(self, dist_str=None):
         if dist_str is None:
-            dist_str = self._NORMAL_DIST
+            dist_str = self.inputCustomDistribution.text()
 
         try:
             parsed = parse_distribution(dist_str)
-            self._pdf = lambda x, mean=0, std=1: parsed(x)
+            self._pdf = lambda x, mean=0, std=1: parsed(x, mean, std)
         except Exception as exception:
             self.valueError.show()
             self.valueError.setText(str(exception))
@@ -159,7 +162,7 @@ class ControlWidget(QWidget, Ui_ControlWidget):
         else:
             samples[row] = value
             item.setText(str(value))
-            table_widget.item(row, 1).setText(str(self._pdf(value)))
+            table_widget.item(row, 1).setText(str(self._pdf(value, np.mean(self._samples), np.std(self._samples))))
             self.samples_changed.emit()
 
     def _parse_data(self, text: str) -> list[float]:
