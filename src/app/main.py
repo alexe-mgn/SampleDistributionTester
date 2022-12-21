@@ -1,4 +1,4 @@
-if __name__ == '__main__':
+def run():
     from PySide6.QtWidgets import QApplication
 
     from gui.MainWindow import MainWindow
@@ -9,3 +9,7 @@ if __name__ == '__main__':
     main_window.show()
 
     app.exec()
+
+
+if __name__ == '__main__':
+    run()

@@ -17,7 +17,7 @@ from .UI.ControlWidget import Ui_ControlWidget
 
 
 class ControlWidget(QWidget, Ui_ControlWidget):
-    _NORMAL_DIST = '1/(1 * sqrt(2 * pi)) * exp(-0.5 * ((x - 0) / 1)^2)'
+    _NORMAL_DIST = '1 / 2 * (1 + erf((x - mean) / (std * sqrt(2))))'
 
     samples_changed = Signal()
 
@@ -46,8 +46,8 @@ class ControlWidget(QWidget, Ui_ControlWidget):
         self.samples_changed.emit()
 
     @property
-    def pdf(self):
-        return self._pdf
+    def cdf(self):
+        return self._cdf
 
     def __init__(self):
         super().__init__()
@@ -61,9 +61,10 @@ class ControlWidget(QWidget, Ui_ControlWidget):
             samples.append(float(table_widget.item(i, 0).text()))
         self._samples = np.array(samples)
 
+        self._input_dist_prev_index = self.inputDistribution.currentIndex()
         self._custom_dist_str = self.inputCustomDistribution.text()
-        self._update_distribution_choice(0)
-        self._update_distribution()
+
+        self._update_distribution_choice()
 
         self.samples_changed.emit()
 
@@ -106,7 +107,7 @@ class ControlWidget(QWidget, Ui_ControlWidget):
     @Slot()
     def update_table(self):
         samples = self._samples
-        dist = self._pdf(samples, np.mean(self._samples), np.std(self._samples))
+        dist = self._cdf(samples)
         table_widget = self.tableWidget
         sb = QSignalBlocker(table_widget)
         input_n = self.inputN
@@ -120,20 +121,40 @@ class ControlWidget(QWidget, Ui_ControlWidget):
             table_widget.setItem(i, 1, item := QTableWidgetItem(str(dist[i])))
             item.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
+    @Slot()
     @Slot(int)
-    def _update_distribution_choice(self, index):
+    def _update_distribution_choice(self, index=None):
+        input_dist = self.inputDistribution
+        if index is None:
+            index = input_dist.currentIndex()
+        else:
+            sb = QSignalBlocker(input_dist)
+            input_dist.setCurrentIndex(index)
+            index = input_dist.currentIndex()
+
         input_custom_dist = self.inputCustomDistribution
+        sb = QSignalBlocker(input_custom_dist)
+        if self._input_dist_prev_index == 0:
+            self._custom_dist_str = input_custom_dist.text()
         input_custom_dist.setEnabled(index == 0)
         input_custom_dist.setText(self._custom_dist_str if index == 0 else self._NORMAL_DIST)
+        del sb
 
+        self._input_dist_prev_index = index
+        self._update_distribution()
+
+    @Slot()
     @Slot(str)
     def _update_distribution(self, dist_str=None):
+        input_custom_dist = self.inputCustomDistribution
         if dist_str is None:
-            dist_str = self.inputCustomDistribution.text()
+            dist_str = input_custom_dist.text()
+        else:
+            sb = QSignalBlocker(input_custom_dist)
+            input_custom_dist.setText(dist_str)
 
         try:
-            parsed = parse_distribution(dist_str)
-            self._pdf = lambda x, mean=0, std=1: parsed(x, mean, std)
+            self._cdf = parse_distribution(dist_str)
         except Exception as exception:
             self.valueError.show()
             self.valueError.setText(str(exception))
@@ -162,7 +183,7 @@ class ControlWidget(QWidget, Ui_ControlWidget):
         else:
             samples[row] = value
             item.setText(str(value))
-            table_widget.item(row, 1).setText(str(self._pdf(value, np.mean(self._samples), np.std(self._samples))))
+            table_widget.item(row, 1).setText(str(self._cdf(samples)[row]))
             self.samples_changed.emit()
 
     def _parse_data(self, text: str) -> list[float]:

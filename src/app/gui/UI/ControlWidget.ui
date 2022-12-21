@@ -100,7 +100,7 @@
       <item>
        <widget class="QLineEdit" name="inputCustomDistribution">
         <property name="text">
-         <string>1/(1 * sqrt(2 * pi)) * exp(-0.5 * ((x - 0) / 1)^2)</string>
+         <string/>
         </property>
         <property name="placeholderText">
          <string>Input distribution expression</string>

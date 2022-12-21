@@ -22,7 +22,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self._statistic = 0
         self._p_value = 0
 
-        self.set_samples(self.controlWidget.samples)
+        self._set_samples(self.controlWidget.samples)
+
+        self.dockWidget.adjustSize()
 
     def setupUi(self, target=None):
         super().setupUi(self if target is None else target)
@@ -35,18 +37,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.valuePlot.deleteLater()
         self.widgetPlotContainer.layout().addWidget(self.plotWidget)
 
+        self.inputSignificance.clear()
+        self.inputSignificance.addItems(list(map(str, sorted(
+            distributions.CRAMERVONMISES_TABLE.keys(), reverse=True))))
+        self.inputSignificance.setCurrentText(str(0.01))
+
         # Connections
-        self.controlWidget.samples_changed.connect(lambda self=self: self.set_samples(self.controlWidget.samples))
+        self.controlWidget.samples_changed.connect(lambda self=self: self._set_samples(self.controlWidget.samples))
 
         self.inputSignificance.currentTextChanged.connect(self._update_results)
 
-    def set_samples(self, samples: np.ndarray):
-        pdf = self.controlWidget.pdf
-        mean, std = np.mean(samples), np.std(samples)
-        pdf_arg = lambda x, mean=mean, std=std, pdf=pdf: pdf(x, mean, std)
-        self._statistic = distributions.cramervonmises(samples, pdf_arg)
-        scipy_results = cramervonmises(samples, pdf_arg)
-        self._p_value = scipy_results.pvalue
+    def _set_samples(self, samples: np.ndarray):
+        cdf = self.controlWidget.cdf
+        self._statistic = distributions.cramervonmises(samples, cdf)
+        # scipy_results = cramervonmises(samples, cdf)
+        # print(self._statistic, scipy_results.statistic)
+        # self._p_value = scipy_results.pvalue
 
         self._update_results()
         self._update_plot()
@@ -54,7 +60,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     @Slot()
     def _update_results(self):
         statistic = self._statistic
-        p_value = self._p_value
+        p_value = distributions.CRAMERVONMISES_TABLE[float(self.inputSignificance.currentText())]
 
         self.valueStatistic.setText(str(statistic))
         self.valuePValue.setText(str(p_value))
@@ -66,8 +72,5 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     @Slot()
     def _update_plot(self):
-        samples = self.controlWidget.samples
-        pdf = self.controlWidget.pdf
-        mean, std = np.mean(samples), np.std(samples)
-        pdf_arg = lambda x, mean=mean, std=std, pdf=pdf: pdf(x, mean, std)
-        self.plotWidget.plot(samples, pdf_arg)
+        control_widget = self.controlWidget
+        self.plotWidget.plot(control_widget.samples, control_widget.cdf)
