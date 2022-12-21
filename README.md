@@ -7,7 +7,9 @@
 ### Результат работы программы для предоставленной выборки
 ![image](tests/test.png)
 
-Запуск приложения без сторонних зависимостей:
+Запуск приложения без сторонних зависимостей:  
+[v1.0.0 direct link](https://github.com/alexe-mgn/SampleDistributionTester/releases/download/v1.0.0/Crimer-Von.Mises.criterion.test.zip)  
+[v1.0.0 release](https://github.com/alexe-mgn/SampleDistributionTester/releases/download/v1.0.0)
 * [В меню releases](https://github.com/alexe-mgn/SampleDistributionTester/releases) в репозитории на github.com
 скачать архив с последним релизом приложения;
 * Распаковать архив и запустить файл "Crimer-Von Mises criterion test.exe"
