@@ -1,1 +1,2 @@
-src/app/gui/UI/*.py
+build
+dist
