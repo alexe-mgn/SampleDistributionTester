@@ -67,7 +67,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.valueHypothesis.setText(
             self.tr('Samples DO NOT match distribution')
             if statistic > p_value else
-            self.tr('Samples MATCH distribution')
+            self.tr('Samples MATCHES distribution')
         )
 
     @Slot()

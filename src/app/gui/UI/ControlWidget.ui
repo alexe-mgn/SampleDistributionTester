@@ -138,7 +138,7 @@
      </column>
      <column>
       <property name="text">
-       <string>Distribution</string>
+       <string>CDF</string>
       </property>
      </column>
      <item row="0" column="0">
